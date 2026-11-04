@@ -1,6 +1,10 @@
 # Moonlight-Editor
 This repo features an alternative and powerful skillbuilder for having numerous features and QOL inprovements.
 
+# Where to find it
+ * website: https://rafaggx2.github.io/Moonlight-Editor/
+ * discord: -Temporarily Unavailable- 
+
 # -FEATURES-
 A list of the most important features includes:
   * Custom themes
