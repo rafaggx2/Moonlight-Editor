@@ -127,15 +127,19 @@ canvas{background:linear-gradient(#1b1d2e,#0e0f13 70%,#181a24)}
 .sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;margin-bottom:10px}.sg .ob{margin:0;text-align:left}
 .sw{display:inline-flex;gap:3px;padding:3px 4px;border:1px solid;border-radius:6px;margin-right:7px;vertical-align:middle}.sw i{display:block;width:10px;height:10px;border-radius:3px}
 .sdl .fl{text-align:left;margin-top:10px}
+.win.cv .mf,.win.cv #tochr{display:none!important}.win.cv .tab{display:none}
+#ctitle{display:none;flex:1;padding:12px 14px;font-weight:700;letter-spacing:.1em;color:var(--mut);font-size:13px}.win.cv #ctitle{display:block}
+#tochr{font-weight:700}.fr select{border-radius:999px;background:var(--bg);border:1px solid var(--line);padding:5px 10px;color:var(--ink)}
+.win.compact .row.k-wait{background-color:transparent}
 </style></head><body>
 <div class="stage"><div class="win" role="application" aria-label="Skill Builder">
- <div class="wt"><span class="wtt">SKILL BUILDER</span>
+ <div class="wt"><span class="wtt">SKILL BUILDER</span><button id="tochr" title="Back to the character">◀ Character</button>
   <label class="mf">Name<input id="nm" maxlength="24" aria-label="Skill name"></label>
-  <label class="mf">Cooldown<input id="cd" type="number" min="0" step="any" aria-label="Cooldown in seconds"></label>
-  <label class="mf">Key<select id="ky" aria-label="Keybind"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
+  <label class="mf" id="lcd">Cooldown<input id="cd" type="number" min="0" step="any" aria-label="Cooldown in seconds"></label>
+  <label class="mf" id="lky">Key<input id="ky" type="number" min="0" step="1" aria-label="Keybind"></label>
   <span class="sp"></span><button id="undo" title="Undo (Ctrl+Z)" disabled>↶ Undo</button><button id="redo" title="Redo (Ctrl+Y)" disabled>↷</button><button id="ex">Example</button><button id="clr">Clear</button><button id="imp" title="Load a JJS code or Builder JSON">Import</button><button id="io">Export</button><button id="stb" title="Editor settings (theme, font, compact nodes)">⚙ Settings</button></div>
  <datalist id="brl"></datalist><div class="bt" id="bt"></div>
- <div class="tabs"><button class="tab on" data-tab="t">Timeline</button><button class="tab" data-tab="c">Conditions</button><button class="tab" data-tab="p">Properties</button></div>
+ <div class="tabs"><div id="ctitle">CHARACTER · pick a block to edit its moveset</div><button class="tab on" data-tab="t">Timeline</button><button class="tab" data-tab="c">Conditions</button><button class="tab" data-tab="p">Properties</button></div>
  <div class="wb">
   <div class="rail"><span class="sp"></span><button id="back" title="Back to node list">↩</button></div>
   <section class="lc"><div id="pw"><div id="mixed" class="nd"></div><input id="q" placeholder="Search nodes…" aria-label="Search nodes"><div id="chips" style="margin-top:8px"></div></div><div id="ed" hidden></div></section>
@@ -155,7 +159,7 @@ canvas{background:linear-gradient(#1b1d2e,#0e0f13 70%,#181a24)}
   <div class="bar"><button id="srs">Reset to defaults</button></div>
  </div></div>
  <div id="iop" style="display:none;margin-top:12px">
-    <div class="bar"><button id="f1" class="on">JJS code</button><button id="f2">Builder JSON</button><label class="st"><input type="checkbox" id="gs"> include properties with unconfirmed keys</label></div>
+    <div class="bar"><button id="f1" class="on">This move</button><button id="f3">Whole character</button><button id="f2">Builder JSON</button><label class="st"><input type="checkbox" id="gs"> include properties with unconfirmed keys</label></div>
     <textarea id="ta" spellcheck="false"></textarea>
     <div class="bar"><button id="cp">Copy</button><button id="ld">Import</button><span id="msg" class="st"></span></div><div id="wn"></div></div></div></div>
 <footer>Fan-made and unofficial; not affiliated with Roblox or Tze’s Shenanigans. Node list and settings follow public community wiki data. Not every in-game setting is documented publicly, so some may be missing.</footer>
@@ -198,16 +202,19 @@ p:[['Damage Multiplier','Multiplies the move’s total damage.',[Q('Multiplier',
 const GN={t:'Timeline nodes',c:'Conditions',p:'Properties'},REG={};
 for(const k in DEF)for(const d of DEF[k])REG[k+d[0]]={k,name:d[0],desc:d[1],ps:d[2]};
 const mk=(k,name,o)=>{const r=REG[k+name],v={};r.ps.forEach(p=>v[p.k]=Array.isArray(p.d)?p.d.slice():p.d);return{kind:k,name,b:'Default',v:Object.assign(v,o||{})}};
-let nodes=[],props=[],tab='t',cur='Default',branches=['Default'],sel=[],meta={name:'Custom Skill',cd:8,key:'1'};
+let nodes=[],props=[],moves=[],ci=-1,ksel=-1,tab='t',cur='Default',branches=['Default'],sel=[],meta={name:'Custom Skill',cd:8,key:'1',kn:'SKILL',x:{ADD:false,'TOOL TIP':''}};
 function fixN(n){const r=REG[n.kind+n.name];if(!r)return n;for(const p of r.ps)if(Array.isArray(p.d)){const v=n.v[p.k];n.v[p.k]=Array.isArray(v)?v:(v==null||v===''?p.d.slice():[v])}return n}
-let hl='',U=[],R=[],restoring=false,hc=false,ht=0;
-const snap=()=>JSON.stringify({nodes,props,meta,branches});
-function save(c){try{localStorage.setItem('jjs-sb2',snap())}catch(e){}
- const j=snap();if(hl&&!restoring&&j!==hl){const now=Date.now();if(!(c&&hc&&now-ht<900)){U.push(hl);if(U.length>100)U.shift()}hc=!!c;ht=now;R=[]}hl=j;
+let hl='',hlm='',U=[],R=[],restoring=false,hc=false,ht=0;
+function stash(){if(ci>=0&&ci<moves.length)moves[ci]={meta,nodes,props,branches}}
+function loadM(i){const m=moves[i];meta=m.meta;nodes=m.nodes;props=m.props;branches=m.branches;ci=i}
+const snapx=()=>{stash();const m=JSON.stringify(moves);return{m,s:'{"moves":'+m+',"ci":'+ci+'}'}};
+function save(c){const S=snapx();try{localStorage.setItem('jjs-sb3',S.s)}catch(e){}
+ const j=S.s;if(hl&&!restoring&&S.m!==hlm){const now=Date.now();if(!(c&&hc&&now-ht<900)){U.push(hl);if(U.length>100)U.shift()}hc=!!c;ht=now;R=[]}hl=j;hlm=S.m;
  $('#undo').disabled=!U.length;$('#redo').disabled=!R.length;
  if($('#iop').style.display==='block'&&document.activeElement!==$('#ta'))fillIO()}
-function hist(dir){const from=dir<0?U:R,to=dir<0?R:U;if(!from.length)return;to.push(hl);const d=JSON.parse(from.pop()),nb=d.branches.find(x=>!branches.includes(x));
- restoring=true;nodes=d.nodes;props=d.props;meta=d.meta;branches=d.branches;cur=nb||(branches.includes(cur)?cur:'Default');sel=[];render();restoring=false}
+function hist(dir){const from=dir<0?U:R,to=dir<0?R:U;if(!from.length)return;to.push(hl);const d=JSON.parse(from.pop()),nb=(d.ci>=0&&d.ci===ci&&d.moves[d.ci])?d.moves[d.ci].branches.find(x=>!branches.includes(x)):null;
+ restoring=true;moves=d.moves;ci=d.ci;ksel=-1;reloadCur();if(ci<0)tab='k';cur=nb||(branches.includes(cur)?cur:'Default');sel=[];render();restoring=false}
+function reloadCur(){if(ci>=0&&moves[ci])loadM(ci);else{ci=-1;meta=newMeta('SKILL');nodes=[];props=[];branches=['Default']}}
 const NC={Wait:'#ffffff',Skill:'#ff8a8a',Special:'#ffab80',Animation:'#fff98a',Sound:'#b4f04a',Velocity:'#17f07d',Connect:'#5a8bff',Hitbox:'#7b4dff',Branch:'#e46bff',Visual:'#ff5fa8',Grab:'#ff4a52',Projectile:'#ffa133',Counter:'#f2e23c',Tag:'#9af03c',State:'#2eb4f0',Teleport:'#b0a2f0','Particle Emitter':'#f0a6f0'};
 for(const n of ['Add Awakening','Add Health','Add Evasion','Hit Cancel','Set Cooldown','Loop','Look','Set Melee'])NC[n]='#90c8ff';
 const IC={Wait:'⏱',Skill:'⚔',Special:'⚔',Animation:'☻',Sound:'♪',Velocity:'➚',Connect:'⚯',Hitbox:'⬡',Branch:'⑂',Visual:'✸',Grab:'✋',Projectile:'➤',Counter:'⛨',Tag:'#',State:'⚙',Teleport:'⌖','Particle Emitter':'✧','Add Awakening':'?','Add Health':'✚','Add Evasion':'≫','Hit Cancel':'✊','Set Cooldown':'⏲',Loop:'↻',Look:'◉','Set Melee':'✊'};
@@ -216,10 +223,10 @@ const SK={Wait:'Time',Skill:'Skill',Special:'Special',Animation:'Animation Name'
 const sm=n=>{const l=SK[n.name],p=l&&REG[n.kind+n.name].ps.find(p=>p.l===l);return p?n.v[p.k]:''};
 const E={t:'No nodes yet. Pick a node on the left to start the sequence.',c:'No conditions. Conditions limit when the move can be used.',p:'No properties set. Pick one on the left.'};
 const arr=()=>tab==='p'?props:nodes,same=(a,b)=>a.kind===b.kind&&(a.b||'Default')===(b.b||'Default');
-function rows(){const lo=new Set();
+function rows(){if(tab==='k')return rowsK();const lo=new Set();
  if(tab==='t'){const vs=nodes.filter(x=>x.kind==='t'&&(x.b||'Default')===cur);for(const L of sel){if(L.name!=='Loop')continue;const k=vs.indexOf(L),c=Math.max(0,Math.floor(+L.v.loop_back)||0);for(let j=Math.max(0,k-c);j<k;j++)lo.add(vs[j])}}
  const ord=nodes.filter(x=>lo.has(x)),f1=ord[0],f2=ord[ord.length-1];
- const h=arr().map((n,i)=>(tab==='p'||n.kind===tab&&(n.b||'Default')===cur)?(()=>{const s=sm(n);return'<button class="row'+(sel.includes(n)?' sel':'')+(lo.has(n)?' looped'+(n===f1?' lo1':'')+(n===f2?' lo2':''):'')+'" data-i="'+i+'" style="--nc:'+nc(n)+'"><span class="gh" title="Drag to reorder">⠿</span><span class="ic">'+ico(n)+'</span><span class="rl">'+(s===''||s==null?'':'<em>['+esc(s)+']</em> ')+esc(n.name.toUpperCase())+'</span></button>'})():'').join('');$('#list').innerHTML=h||'<div class="empty">'+E[tab]+'</div>'}
+ const h=arr().map((n,i)=>(tab==='p'||n.kind===tab&&(n.b||'Default')===cur)?(()=>{const s=sm(n);return'<button class="row'+(n.name==='Wait'?' k-wait':'')+(sel.includes(n)?' sel':'')+(lo.has(n)?' looped'+(n===f1?' lo1':'')+(n===f2?' lo2':''):'')+'" data-i="'+i+'" style="--nc:'+nc(n)+'"><span class="gh" title="Drag to reorder">⠿</span><span class="ic">'+ico(n)+'</span><span class="rl">'+(s===''||s==null?'':'<em>['+esc(s)+']</em> ')+esc(n.name.toUpperCase())+'</span></button>'})():'').join('');$('#list').innerHTML=h||'<div class="empty">'+E[tab]+'</div>'}
 const rgb2hex=t=>{const m=String(t).match(/-?\d+(?:\.\d+)?/g);return m&&m.length>=3?'#'+m.slice(0,3).map(x=>Math.max(0,Math.min(255,Math.round(+x))).toString(16).padStart(2,'0')).join(''):null};
 const hex2rgb=h=>{const n=parseInt(h.slice(1),16);return((n>>16)&255)+', '+((n>>8)&255)+', '+(n&255)};
 const isCol=p=>typeof p.d==='string'&&/(^|\s)color$/i.test(p.l);
@@ -233,14 +240,14 @@ function editor(){const n=sel[0],r=REG[n.kind+n.name],ps=r.ps.slice();
  if(!ps.length)h+='<div class="empty">No settings for this node.</div>';$('#ed').innerHTML=h}
 function render(){
  $('#bt').innerHTML=branches.map(b=>'<button class="'+(b===cur?'on':'')+'" data-b="'+esc(b)+'">'+esc(b)+'</button>').join('')+'<button data-b="+" title="Add branch">＋</button>';
- $('#bt').style.display=tab!=='p'?'flex':'none';$('#brl').innerHTML=branches.filter(x=>x!=='Default').map(x=>'<option value="'+esc(x)+'">').join('');
+ $('#bt').style.display=(tab!=='p'&&tab!=='k')?'flex':'none';$('.win').classList.toggle('cv',tab==='k');{const f=(BLK.find(b=>b[0]===meta.kn)||[0,0,0,['name']])[3];$('#lcd').style.display=f.includes('cd')?'':'none';$('#lky').style.display=f.includes('key')?'':'none'}$('#brl').innerHTML=branches.filter(x=>x!=='Default').map(x=>'<option value="'+esc(x)+'">').join('');
  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x.dataset.tab===tab));
  $('.wb').classList.toggle('ptab',tab==='p');if(tab==='p')psRender();$('#nm').value=meta.name;$('#cd').value=meta.cd;$('#ky').value=meta.key;
- const one=sel.length>0&&sel.every(n=>n.kind===sel[0].kind&&n.name===sel[0].name);$('#pw').hidden=one;$('#ed').hidden=!one;if(one)editor();else{pal();$('#mixed').textContent=sel.length>1?sel.length+' nodes selected. The edit screen is unavailable for mixed types.':''}
+ if(tab==='k'){const o=ksel>=0&&ksel<moves.length;$('#pw').hidden=o;$('#ed').hidden=!o;if(o)editorK();else{palK();$('#mixed').textContent=''}}else{const one=sel.length>0&&sel.every(n=>n.kind===sel[0].kind&&n.name===sel[0].name);$('#pw').hidden=one;$('#ed').hidden=!one;if(one)editor();else{pal();$('#mixed').textContent=sel.length>1?sel.length+' nodes selected. The edit screen is unavailable for mixed types.':''}}
  rows();save()}
-function pal(){const q=$('#q').value.toLowerCase(),k=tab;$('#chips').innerHTML=DEF[k].filter(d=>d[0].toLowerCase().includes(q)).map(d=>'<button class="row" data-add="'+k+'" data-n="'+esc(d[0])+'" title="'+esc(d[1])+'" style="--nc:'+(NC[d[0]]||(k==='c'?'#ffb020':'#3ddc97'))+'"><span class="ic">'+(IC[d[0]]||(k==='c'?'?':'●'))+'</span><span class="rl">'+esc(d[0].toUpperCase())+'</span></button>').join('')}
+function pal(){if(tab==='k')return palK();const q=$('#q').value.toLowerCase(),k=tab;$('#chips').innerHTML=DEF[k].filter(d=>d[0].toLowerCase().includes(q)).map(d=>'<button class="row" data-add="'+k+'" data-n="'+esc(d[0])+'" title="'+esc(d[1])+'" style="--nc:'+(NC[d[0]]||(k==='c'?'#ffb020':'#3ddc97'))+'"><span class="ic">'+(IC[d[0]]||(k==='c'?'?':'●'))+'</span><span class="rl">'+esc(d[0].toUpperCase())+'</span></button>').join('')}
 $('#q').oninput=pal;
-$('#chips').onclick=e=>{const b=e.target.closest('[data-add]');if(!b)return;const k=b.dataset.add,n=b.dataset.n;
+$('#chips').onclick=e=>{const bk=e.target.closest('[data-addk]');if(bk){addBlock(bk.dataset.addk);return}const b=e.target.closest('[data-add]');if(!b)return;const k=b.dataset.add,n=b.dataset.n;
  if(k==='p'){if(!props.some(p=>p.name===n))props.push(mk('p',n))}else{const m=mk(k,n);m.b=cur;nodes.push(m)}render();const L=$('#list');L.scrollTop=L.scrollHeight};
 
 let jd=false,dg=null,lp=null,held=false,clip=[],jb=false,raf=0;
@@ -262,7 +269,7 @@ window.addEventListener('pointercancel',()=>{if(gs){gs=null;$('#gut').classList.
 $('#gut').addEventListener('keydown',e=>{const k=e.key;if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(k))return;e.preventDefault();setLf((parseFloat($('.wb').style.getPropertyValue('--lf'))||.5)+(k==='ArrowLeft'||k==='ArrowUp'?-.03:.03),true)});
 $('#gut').addEventListener('dblclick',()=>setLf(.5,true));
 function toggleSel(n){const i=sel.indexOf(n);if(i>=0)sel.splice(i,1);else sel.push(n);const l=arr();sel.sort((a,b)=>l.indexOf(a)-l.indexOf(b))}
-$('#list').onclick=e=>{if(jd)return;const b=e.target.closest('[data-i]');if(!b)return;const n=arr()[+b.dataset.i];if(e.ctrlKey||e.metaKey||e.shiftKey)toggleSel(n);else sel=sel.length===1&&sel[0]===n?[]:[n];render()};
+$('#list').onclick=e=>{if(jd)return;if(tab==='k'){const b=e.target.closest('[data-i]');if(!b)return;const i=+b.dataset.i;if(e.detail===2){openMove(i);return}ksel=ksel===i?-1:i;render();return}const b=e.target.closest('[data-i]');if(!b)return;const n=arr()[+b.dataset.i];if(e.ctrlKey||e.metaKey||e.shiftKey)toggleSel(n);else sel=sel.length===1&&sel[0]===n?[]:[n];render()};
 $('#list').addEventListener('contextmenu',e=>e.preventDefault());
 /* ---- drag and drop: nodes (reorder, or drop on a branch tab to move them there) and branch tabs (reorder) ---- */
 const $w=()=>document.querySelector('.win');
@@ -297,7 +304,7 @@ function dgLoop(){const d=dg;if(!d||!d.on)return;let moved=false;
   const vh=window.innerHeight||800;if(window.scrollBy){if(d.py<56){window.scrollBy(0,-10);moved=true}else if(d.py>vh-56){window.scrollBy(0,10);moved=true}}}
  else{const B=$('#bt'),q=B.getBoundingClientRect();if(B.scrollWidth>B.clientWidth){if(d.px<q.left+40){B.scrollLeft-=10;moved=true}else if(d.px>q.right-40){B.scrollLeft+=10;moved=true}}}
  if(moved)dgUpdate();raf=requestAnimationFrame(dgLoop)}
-$('#list').addEventListener('pointerdown',e=>{const b=e.target.closest('.row');if(!b||e.button>0)return;const n=arr()[+b.dataset.i],gh=!!e.target.closest('.gh');
+$('#list').addEventListener('pointerdown',e=>{if(tab==='k')return;const b=e.target.closest('.row');if(!b||e.button>0)return;const n=arr()[+b.dataset.i],gh=!!e.target.closest('.gh');
  if(!gh)lp={x:e.clientX,y:e.clientY,t:setTimeout(()=>{lp=null;held=true;dg=null;toggleSel(n);render()},420)};
  if(e.pointerType!=='mouse'&&!gh)return;
  dg={k:'n',el:b,n,mv:sel.includes(n)?arr().filter(x=>sel.includes(x)):[n],x:e.clientX,y:e.clientY,px:e.clientX,py:e.clientY,id:e.pointerId,on:false,drop:null}});
@@ -319,7 +326,7 @@ $('#bt').onclick=e=>{if(jb)return;const b=e.target.closest('[data-b]');if(!b)ret
 const vis=n=>tab==='p'||n.kind===tab&&(n.b||'Default')===cur;
 function paste(){if(tab==='p'||!clip.length)return;const l=arr(),add=clip.filter(x=>x.kind===tab).map(x=>{const c=JSON.parse(JSON.stringify(x));c.b=cur;return c});if(!add.length)return;
  const last=sel.length?l.indexOf(sel[sel.length-1]):-1;l.splice(last>=0?last+1:l.length,0,...add);sel=add;render()}
-function act(a){const l=arr();
+function act(a){if(tab==='k')return actK(a);const l=arr();
  if(!sel.length){
   if(a==='paste'){paste();return}
   if(tab==='p'||a==='copy'||cur==='Default')return;
@@ -329,7 +336,7 @@ function act(a){const l=arr();
   render();return}
  if(a==='copy'){if(tab!=='p')clip=JSON.parse(JSON.stringify(l.filter(x=>sel.includes(x))));return}
  if(a==='paste'){paste();return}
- if(a==='rm'){for(const x of sel)l.splice(l.indexOf(x),1);sel=[]}
+ if(a==='rm'){const vs=l.filter(vis),ix=sel.map(x=>vs.indexOf(x)).filter(i=>i>=0);let nx=null;if(ix.length){const hi=Math.max(...ix),lo=Math.min(...ix);nx=vs.slice(hi+1).find(x=>!sel.includes(x))||vs.slice(0,lo).reverse().find(x=>!sel.includes(x))||null}for(const x of sel)l.splice(l.indexOf(x),1);sel=nx?[nx]:[]}
  else{const idx=[],vs=[];l.forEach((x,i)=>{if(vis(x)){idx.push(i);vs.push(x)}});const n=vs.length;
   if(a==='up'){for(let k=1;k<n;k++)if(sel.includes(vs[k])&&!sel.includes(vs[k-1]))[vs[k],vs[k-1]]=[vs[k-1],vs[k]]}
   else{for(let k=n-2;k>=0;k--)if(sel.includes(vs[k])&&!sel.includes(vs[k+1]))[vs[k],vs[k+1]]=[vs[k+1],vs[k]]}
@@ -338,12 +345,13 @@ function act(a){const l=arr();
 $('#undo').onclick=()=>hist(-1);$('#redo').onclick=()=>hist(1);$('#rm').onclick=()=>act('rm');$('#cpy').onclick=()=>act('copy');$('#pst').onclick=()=>act('paste');$('#up').onclick=()=>act('up');$('#dn').onclick=()=>act('dn');
 window.addEventListener('keydown',e=>{if(/INPUT|TEXTAREA|SELECT/.test((e.target&&e.target.tagName)||''))return;const m=e.ctrlKey||e.metaKey,k=(e.key||'').toLowerCase();
  if(k==='delete')act('rm');else if(m&&k==='c')act('copy');else if(m&&k==='v')act('paste');else if(m&&k==='z')hist(e.shiftKey?1:-1);else if(m&&k==='y')hist(1);else if(k==='escape'&&dg)dgEnd(false);else return;e.preventDefault()});
-$('#back').onclick=()=>{sel=[];render()};
+$('#back').onclick=()=>{sel=[];ksel=-1;render()};
 
-function example(){nodes=[mk('t','Animation',{animation_name:'Divergent Fist',animation_use:'2, 4',slider_end:2.75}),mk('t','Wait',{time:.25}),mk('t','Sound',{audio_id:'0'}),mk('t','Velocity',{force:'0, 0, 160',time:.4}),mk('t','Wait',{time:.4}),mk('t','Hitbox',{position:'0, 0, 5',size:'7, 7, 7',damage:12}),mk('t','Visual',{effect:'Shake Medium'}),mk('t','Wait',{time:.3}),mk('t','Projectile',{speed:3,time:1.5}),mk('t','Add Awakening',{amount:8})];props=[mk('p','Damage Multiplier',{multiplier:1.2}),mk('p','No Cancel')];branches=['Default'];cur='Default';sel=[];render()}
+function example(){const nn=[mk('t','Animation',{animation_name:'Divergent Fist',animation_use:'2, 4',slider_end:2.75}),mk('t','Wait',{time:.25}),mk('t','Sound',{audio_id:'0'}),mk('t','Velocity',{force:'0, 0, 160',time:.4}),mk('t','Wait',{time:.4}),mk('t','Hitbox',{position:'0, 0, 5',size:'7, 7, 7',damage:12}),mk('t','Visual',{effect:'Shake Medium'}),mk('t','Wait',{time:.3}),mk('t','Projectile',{speed:3,time:1.5}),mk('t','Add Awakening',{amount:8})],pp=[mk('p','Damage Multiplier',{multiplier:1.2}),mk('p','No Cancel')];
+ moves=[{meta:{name:'Custom Skill',cd:8,key:'1',kn:'SKILL',x:{ADD:false,'TOOL TIP':''}},nodes:nn,props:pp,branches:['Default']}];ci=0;ksel=-1;loadM(0);cur='Default';sel=[];render()}
 
-$('#nm').oninput=e=>{meta.name=e.target.value;save(true)};$('#cd').oninput=e=>{meta.cd=parseFloat(e.target.value)||0;save(true)};$('#ky').onchange=e=>{meta.key=e.target.value;save()};
-$('#ex').onclick=example;$('#clr').onclick=()=>{nodes=[];props=[];branches=['Default'];cur='Default';sel=[];render()};
+$('#nm').oninput=e=>{meta.name=e.target.value;save(true)};$('#cd').oninput=e=>{meta.cd=parseFloat(e.target.value)||0;save(true)};$('#ky').oninput=e=>{meta.key=e.target.value;save(true)};
+$('#ex').onclick=example;$('#clr').onclick=()=>{if(tab==='k'){moves=[];ci=-1;ksel=-1;reloadCur();sel=[];render();return}nodes=[];props=[];branches=['Default'];cur='Default';sel=[];render()};
 const num=x=>Number.isFinite(+x)?+x:0,idn=s=>{const m=String(s==null?'':s).match(/\d+/);return m?+m[0]:0};
 /* K_NAME values and setting keys are taken from real game exports; a setting key is its UPPERCASE name unless the param carries .kn */
 const KN={Wait:'WAIT',Skill:'SKILL',Special:'SPECIAL',Animation:'ANIM',Sound:'SFX',Velocity:'VELO',Connect:'CONNECT',Hitbox:'HITBOX',Branch:'BRANCH',Visual:'VISUAL',Grab:'GRAB',Projectile:'PROJECTILE',Counter:'COUNTER',Tag:'TAG',State:'STATE',Teleport:'TELEPORT','Particle Emitter':'PARTICLE','Add Awakening':'ULTGIB','Add Health':'HPGIB','Add Evasion':'EVGIB','Hit Cancel':'HITCNCL','Set Cooldown':'SETCD',Loop:'LOOP',Look:'LOOK','Set Melee':'SETMELEE','In Air':'AIR','Is Jumping':'JUMP','Has Target':'AIM','Is Awakened':'ULT','Has Awk Bar':'BAR',Durability:'DUR','Has Health':'HP','Is In Domain':'DOMAIN','Is Holding':'HOLD'};
@@ -358,22 +366,25 @@ function nodeObj(n){const o={K_NAME:KN[n.name]},ui=UIX[n.name]||[],v=n.v;
  for(const p of REG[n.kind+n.name].ps){if(ui.includes(p.l))continue;let x=v[p.k];if(x===''||x==null)continue;
   if(Array.isArray(p.d))x=x.join(',');else if(typeof p.d==='number')x=num(x);o[pkey(p)]=x}
  return o}
-function buildExport(guess){
- const warn=[],unp=[],fb=(k,b)=>nodes.filter(n=>n.kind===k&&(n.b||'Default')===b).map(nodeObj),pr={};
+function buildMove(m,guess){
+ const warn=[],unp=[],nodes=m.nodes,props=m.props,branches=m.branches,meta=m.meta,fb=(k,b)=>nodes.filter(n=>n.kind===k&&(n.b||'Default')===b).map(nodeObj),pr={};
  const D={Line:fb('t','Default'),Req:fb('c','Default')};
  for(const n of props){if(PKU.has(n.name)&&!guess){unp.push(n.name);continue}const p=REG['p'+n.name].ps[0];pr[PK[n.name]]=p?(typeof p.d==='number'?String(num(n.v[p.k])):String(n.v[p.k])):true}
  D.Prop=Object.keys(pr).length?pr:[];
  const bs=branches.filter(b=>b!=='Default');if(bs.length){D.Branch={};for(const b of bs)D.Branch[b]={Line:fb('t',b),Req:fb('c',b)}}
  if(unp.length)warn.push('Not exported, key unconfirmed: '+unp.join(', ')+'.');
  const kn=meta.kn||'SKILL',x=meta.x||{},data=JSON.stringify(D);let top;
- if(kn==='SKILL')top={ADD:x.ADD===true,NAME:meta.name,K_NAME:'SKILL',KEY:/^[1-4]$/.test(meta.key)?+meta.key:1,'TOOL TIP':x['TOOL TIP']||'',DATA:data,COOLDOWN:num(meta.cd)};
- else{top=Object.assign({},x,{NAME:meta.name,K_NAME:kn,DATA:data});if('COOLDOWN' in x)top.COOLDOWN=num(meta.cd)}
- return{json:JSON.stringify([top]),warn}}
+ if(kn==='SKILL')top={ADD:x.ADD===true,NAME:meta.name,K_NAME:'SKILL',KEY:Number.isFinite(parseFloat(meta.key))?Math.trunc(parseFloat(meta.key)):1,'TOOL TIP':x['TOOL TIP']||'',DATA:data,COOLDOWN:num(meta.cd)};
+ else{top=Object.assign({},x,{NAME:meta.name,K_NAME:kn,DATA:data});if('COOLDOWN' in x||kn==='SPECIAL'||kn==='CHASE')top.COOLDOWN=num(meta.cd)}
+ return{top,warn}}
+function buildExport(guess){stash();const m=ci>=0&&moves[ci]?moves[ci]:{meta,nodes,props,branches},r=buildMove(m,guess);return{json:JSON.stringify([r.top]),warn:r.warn}}
+function buildChar(guess){stash();const tops=[],warn=[];for(const m of moves){const r=buildMove(m,guess);tops.push(r.top);warn.push(...r.warn.map(w=>m.meta.name+': '+w))}return{json:JSON.stringify(tops),warn}}
 /* valid zstd frame made of raw (stored) blocks: any zstd decoder accepts it */
 function zstdRaw(u){const n=u.length,o=[0x28,0xB5,0x2F,0xFD];
  if(n<256)o.push(0x20,n);else if(n<65792)o.push(0x60,(n-256)&255,(n-256)>>8);else o.push(0xA0,n&255,(n>>8)&255,(n>>16)&255,(n>>>24)&255);
  let p=0;do{const c=Math.min(131072,n-p),h=(c<<3)|(p+c>=n?1:0);o.push(h&255,(h>>8)&255,(h>>16)&255);for(let i=0;i<c;i++)o.push(u[p+i]);p+=c}while(p<n);return Uint8Array.from(o)}
 const b64=u=>{let s='';for(let i=0;i<u.length;i+=8192)s+=String.fromCharCode.apply(null,u.subarray(i,i+8192));return btoa(s)};
+const jjsCodeAll=g=>{const r=buildChar(g);return{code:b64(zstdRaw(new TextEncoder().encode(r.json))),warn:r.warn,json:r.json}};
 const jjsCode=g=>{const r=buildExport(g);return{code:b64(zstdRaw(new TextEncoder().encode(r.json))),warn:r.warn,json:r.json}};
 /* ---- zstd decoder (RFC 8878): raw/RLE/compressed blocks, Huffman + FSE ---- */
 const LLB=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,18,20,22,24,28,32,40,48,64,128,256,512,1024,2048,4096,8192,16384,32768,65536],LLX=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,2,2,3,3,4,6,7,8,9,10,11,12,13,14,15,16];
@@ -441,7 +452,7 @@ function zstdDecode(u8){let p=0;const w32=()=>(u8[p]|u8[p+1]<<8|u8[p+2]<<16|u8[p
  return out.subarray(0,op)}
 /* ---- import: JJS code (base64 of zstd of JSON) -> builder state ---- */
 let pend=null;
-function loadMove(m){const D=typeof m.DATA==='string'?JSON.parse(m.DATA):(m.DATA||{}),warn=[],ig=new Set(),KT={},KC={};
+function loadMove(m,ret){const D=typeof m.DATA==='string'?JSON.parse(m.DATA):(m.DATA||{}),warn=[],ig=new Set(),KT={},KC={};
  for(const d of DEF.t)KT[KN[d[0]]]=d[0];for(const d of DEF.c)KC[KN[d[0]]]=d[0];
  const conv=(o,kind,b)=>{const name=(kind==='t'?KT:KC)[o.K_NAME];if(!name){warn.push('Unknown node '+o.K_NAME+' skipped');return null}
   const n=mk(kind,name);n.b=b;const used=new Set(['K_NAME']);
@@ -456,22 +467,30 @@ function loadMove(m){const D=typeof m.DATA==='string'?JSON.parse(m.DATA):(m.DATA
  const pp=[];if(D.Prop&&!Array.isArray(D.Prop)){const inv=Object.fromEntries(Object.entries(PK).map(([a,b])=>[b,a]));
   for(const [k,v] of Object.entries(D.Prop)){const name=inv[k];if(!name){warn.push('Unknown property '+k+' skipped');continue}if(v===false)continue;const n=mk('p',name),p=REG['p'+name].ps[0];if(p)n.v[p.k]=typeof p.d==='number'?(+v||0):String(v);pp.push(n)}}
  const x={};for(const k in m)if(!['DATA','NAME','K_NAME','KEY'].includes(k))x[k]=m[k];
- nodes=nn;props=pp;branches=bl;cur='Default';tab='t';sel=[];
- meta={name:String(m.NAME==null?'':m.NAME),cd:+m.COOLDOWN||0,key:/^[1-4]$/.test(String(m.KEY))?String(m.KEY):'1',kn:m.K_NAME||'SKILL',x};
+ const mt={name:String(m.NAME==null?'':m.NAME),cd:+m.COOLDOWN||0,key:Number.isFinite(parseFloat(m.KEY))?String(m.KEY):'1',kn:m.K_NAME||'SKILL',x};
+ if(ret)return{mv:{meta:mt,nodes:nn,props:pp,branches:bl},warn,ig};
+ nodes=nn;props=pp;branches=bl;meta=mt;if(ci>=0)moves[ci]={meta,nodes,props,branches};cur='Default';tab='t';sel=[];
  render();pend=null;
  $('#msg').textContent='Imported '+(m.K_NAME||'move')+' “'+meta.name+'”: '+nn.filter(n=>n.kind==='t').length+' nodes, '+bl.length+' branch(es)';
  if(ig.size)warn.push('Settings not recognised and ignored: '+[...ig].slice(0,12).join(', ')+(ig.size>12?' …':''));
  $('#wn').innerHTML=warn.map(t=>'⚠ '+esc(t)).join('<br>')}
 function doImport(){const t=$('#ta').value.trim();if(!t){$('#msg').textContent='Paste a code first.';return}
  try{let d;if(t[0]==='['||t[0]==='{')d=JSON.parse(t);else{const bin=atob(t.replace(/\s+/g,'')),u=Uint8Array.from(bin,c=>c.charCodeAt(0));d=JSON.parse(new TextDecoder().decode(zstdDecode(u)))}
-  if(d&&!Array.isArray(d)&&d.nodes){const ok=l=>(l||[]).filter(n=>REG[n.kind+n.name]).map(n=>{const m=mk(n.kind,n.name,n.v);m.b=n.b||'Default';return fixN(m)});nodes=ok(d.nodes);props=ok(d.props);branches=Array.isArray(d.branches)&&d.branches.length?d.branches:['Default'];cur='Default';sel=[];if(d.meta)meta=Object.assign(meta,d.meta);render();$('#msg').textContent='Imported builder JSON';$('#wn').innerHTML='';return}
+  const done=(msg,warn)=>{$('#msg').textContent=msg;$('#wn').innerHTML=(warn||[]).map(x=>'⚠ '+esc(x)).join('<br>')};
+  if(d&&!Array.isArray(d)&&(d.moves||d.nodes)){
+   if(d.moves){moves=d.moves.map(fixMove);ci=Math.max(-1,Math.min(+d.ci||0,moves.length-1))}else{moves=[fixMove({meta:d.meta,nodes:d.nodes,props:d.props,branches:d.branches})];ci=0}
+   ksel=-1;reloadCur();cur='Default';sel=[];render();done('Imported builder JSON');return}
   const arr=Array.isArray(d)?d:[d];
-  if(arr.length===1)loadMove(arr[0]);else{pend=arr;$('#msg').textContent='';$('#wn').innerHTML='<div style="color:var(--ink)">'+arr.length+' entries in this code. Pick the one to load:</div>'+arr.map((m,i)=>'<button class="pk" data-m="'+i+'">'+esc((m.K_NAME||'?')+' · '+(m.NAME==null?'':m.NAME))+'</button>').join(' ')}}
+  if(arr.length>1){const mv=[],wr=[],ig=new Set();for(const e of arr){const r=loadMove(e,true);mv.push(r.mv);wr.push(...r.warn);r.ig.forEach(k=>ig.add(k))}
+   moves=mv;ci=0;ksel=-1;loadM(0);cur='Default';sel=[];tab='k';render();if(ig.size)wr.push('Settings not recognised and ignored: '+[...ig].slice(0,12).join(', ')+(ig.size>12?' …':''));done('Imported a character with '+mv.length+' blocks',wr)}
+  else if(tab==='k'){const r=loadMove(arr[0],true);stash();moves.push(r.mv);ksel=moves.length-1;if(ci<0){ci=ksel;loadM(ci)}render();done('Added '+(arr[0].K_NAME||'block')+' “'+r.mv.meta.name+'” to the character',r.warn)}
+  else loadMove(arr[0])}
  catch(e){$('#msg').textContent='Could not read that code: '+e.message}}
 let fmt='code';
-function fillIO(){if(fmt==='in')return;let w=[];if(fmt==='code'){const r=jjsCode($('#gs').checked);$('#ta').value=r.code;w=r.warn}else $('#ta').value=JSON.stringify({game:'JJS',meta,branches,nodes:nodes.map(n=>({kind:n.kind,name:n.name,b:n.b,v:n.v})),props:props.map(n=>({kind:'p',name:n.name,v:n.v}))},null,1);
- $('#wn').innerHTML=w.map(x=>'⚠ '+esc(x)).join('<br>');$('#f1').classList.toggle('on',fmt==='code');$('#f2').classList.toggle('on',fmt!=='code')}
-$('#io').onclick=()=>{const b=$('#iop');const open=b.style.display==='block'&&fmt!=='in';b.style.display=open?'none':'block';if(fmt==='in')fmt='code';fillIO()};
+function fillIO(){if(fmt==='in')return;let w=[];if(fmt==='code'||fmt==='char'){const r=(fmt==='char'?jjsCodeAll:jjsCode)($('#gs').checked);$('#ta').value=r.code;w=r.warn}else{stash();$('#ta').value=JSON.stringify({game:'JJS',moves,ci},null,1)}
+ $('#wn').innerHTML=w.map(x=>'⚠ '+esc(x)).join('<br>');$('#f1').classList.toggle('on',fmt==='code');$('#f3').classList.toggle('on',fmt==='char');$('#f2').classList.toggle('on',fmt==='json')}
+$('#io').onclick=()=>{const b=$('#iop');const open=b.style.display==='block'&&fmt!=='in';b.style.display=open?'none':'block';if(!open)fmt=tab==='k'?'char':'code';fillIO()};
+$('#f3').onclick=()=>{fmt='char';fillIO()};
 $('#imp').onclick=()=>{const b=$('#iop');if(b.style.display==='block'&&fmt==='in'){b.style.display='none';return}b.style.display='block';fmt='in';$('#f1').classList.toggle('on',false);$('#f2').classList.toggle('on',false);$('#ta').value='';$('#wn').innerHTML='';pend=null;$('#msg').textContent='Paste a JJS code or Builder JSON, then press Import.';$('#ta').focus()};
 $('#wn').onclick=e=>{const b=e.target.closest('[data-m]');if(b&&pend)loadMove(pend[+b.dataset.m])};
 $('#f1').onclick=()=>{fmt='code';fillIO()};$('#f2').onclick=()=>{fmt='json';fillIO()};$('#gs').onchange=fillIO;
@@ -509,6 +528,58 @@ $('#sfn').onclick=e=>{const b=e.target.closest('[data-ff]');if(b){UI.font=b.data
 $('#scp').onchange=e=>{UI.compact=e.target.checked;sSave()};
 $('#srs').onclick=()=>{UI=Object.assign({},DUI);sSave()};
 window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#sov').hidden)sClose()});
+try{window.matchMedia('(prefers-color-scheme: light)').addEventListener('change',()=>{if(UI.theme==='auto')applyUI()})}catch(e){}
+applyUI();
+/* ---- character: blocks (Skill / Special / Melee / Chase / Awakening), each with its own moveset ---- */
+const BLK=[['SKILL','Skill','A move bound to key 1–4.',['name','key','cd','tip','add'],'#ff8a8a','⚔','Skill1',{ADD:false,'TOOL TIP':''}],
+ ['SPECIAL','Special','The special move (R).',['name','cd'],'#ffab80','✦','R',{}],
+ ['MELEE','Melee','One hit of the basic combo. Its name is the combo number.',['name'],'#fff98a','✊','1',{}],
+ ['CHASE','Chase','The dash / chase move.',['name','cd'],'#17f07d','➚','Dash',{}],
+ ['AWAKENING','Awakening','The awakening form: duration, delay and color.',['name','duration','delay','color'],'#e46bff','✸','Awakening',{DURATION:5,DELAY:1,COLOR:'255,0,0'}]];
+const bt=kn=>{const b=BLK.find(x=>x[0]===kn);return b?{n:b[1],c:b[4],i:b[5],f:b[3],d:b[2]}:{n:kn,c:'#90c8ff',i:'●',f:['name'],d:'Block imported from a code.'}};
+function newMeta(kn){const b=BLK.find(x=>x[0]===kn)||BLK[0];return{name:b[6],cd:kn==='SPECIAL'?1:kn==='CHASE'?2:kn==='SKILL'?8:0,key:'1',kn,x:Object.assign({},b[7])}}
+function fixMove(m){const ok=l=>(l||[]).filter(n=>REG[n.kind+n.name]).map(fixN);return{meta:Object.assign(newMeta((m.meta&&m.meta.kn)||'SKILL'),m.meta),nodes:ok(m.nodes),props:ok(m.props),branches:m.branches&&m.branches.length?m.branches:['Default']}}
+function rowsK(){$('#list').innerHTML=moves.length?moves.map((m,i)=>{const t=bt(m.meta.kn);return'<button class="row'+(i===ksel?' sel':'')+'" data-i="'+i+'" style="--nc:'+t.c+'"><span class="ic">'+t.i+'</span><span class="rl"><em>['+esc(m.meta.name)+']</em> '+esc(t.n.toUpperCase())+'</span></button>'}).join(''):'<div class="empty">No blocks yet. Add a Skill, Special, Melee, Chase or Awakening from the left.</div>'}
+function palK(){const q=$('#q').value.toLowerCase();$('#chips').innerHTML=BLK.filter(b=>b[1].toLowerCase().includes(q)).map(b=>'<button class="row" data-addk="'+b[0]+'" title="'+esc(b[2])+'" style="--nc:'+b[4]+'"><span class="ic">'+b[5]+'</span><span class="rl">'+esc(b[1].toUpperCase())+'</span></button>').join('')}
+function editorK(){const m=moves[ksel],mt=m.meta,t=bt(mt.kn),x=mt.x||(mt.x={}),f=t.f;
+ const fr=(l,inner)=>'<label class="fr"><span class="fl">'+l+'</span>'+inner+'</label>';
+ let h='<div class="eh" style="--nc:'+t.c+'"><span class="row"><span class="ic" style="--nc:'+t.c+'">'+t.i+'</span></span>'+esc(t.n.toUpperCase())+'</div><div class="nd">'+esc(t.d)+'</div>';
+ if(f.includes('name'))h+=fr(mt.kn==='MELEE'?'Combo hit':'Name','<input data-kf="name" value="'+esc(mt.name)+'">');
+ if(f.includes('key'))h+=fr('Key','<input data-kf="key" type="number" step="1" value="'+esc(mt.key)+'">');
+ if(f.includes('cd'))h+=fr('Cooldown','<input data-kf="cd" type="number" step="any" value="'+esc(mt.cd)+'">');
+ if(f.includes('tip'))h+=fr('Tool tip','<input data-kf="tip" value="'+esc(x['TOOL TIP']||'')+'">');
+ if(f.includes('add'))h+=fr('Add','<input type="checkbox" data-kf="add"'+(x.ADD?' checked':'')+'>');
+ if(f.includes('duration'))h+=fr('Duration','<input data-kf="duration" type="number" step="any" value="'+esc(x.DURATION==null?0:x.DURATION)+'">');
+ if(f.includes('delay'))h+=fr('Delay','<input data-kf="delay" type="number" step="any" value="'+esc(x.DELAY==null?0:x.DELAY)+'">');
+ if(f.includes('color'))h+=fr('Color','<span class="cw"><input type="color" class="cpk" data-kpick="color" value="'+(rgb2hex(x.COLOR)||'#ff0000')+'"><input data-kf="color" value="'+esc(x.COLOR||'255,0,0')+'"></span>');
+ h+='<div class="bar"><button class="pk" data-kopen="1">Edit moveset ▶</button></div><div class="nd">'+(m.nodes.filter(n=>n.kind==='t').length)+' nodes in the moveset.</div>';
+ $('#ed').innerHTML=h}
+function addBlock(kn){stash();moves.push({meta:newMeta(kn),nodes:[],props:[],branches:['Default']});ksel=moves.length-1;if(ci<0)loadM(ksel);render();const L=$('#list');L.scrollTop=L.scrollHeight}
+function openMove(i){stash();ci=i;loadM(i);cur='Default';sel=[];tab='t';ksel=i;render()}
+let kclip=null;
+function actK(a){stash();
+ if(a==='copy'){if(ksel>=0)kclip=JSON.parse(JSON.stringify(moves[ksel]));return}
+ if(a==='paste'){if(!kclip)return;const c=JSON.parse(JSON.stringify(kclip)),p=ksel>=0?ksel+1:moves.length;if(ci>=p)ci++;moves.splice(p,0,c);ksel=p;render();return}
+ if(ksel<0)return;
+ if(a==='rm'){const was=ci;moves.splice(ksel,1);ci=was===ksel?Math.min(ksel,moves.length-1):(was>ksel?was-1:was);reloadCur();ksel=Math.min(ksel,moves.length-1)}
+ else{const j=a==='up'?ksel-1:ksel+1;if(j<0||j>=moves.length)return;[moves[ksel],moves[j]]=[moves[j],moves[ksel]];if(ci===ksel)ci=j;else if(ci===j)ci=ksel;ksel=j}
+ render()}
+$('#tochr').onclick=()=>{stash();tab='k';ksel=ci;sel=[];render()};
+$('#ed').addEventListener('input',e=>{if(tab!=='k'||ksel<0)return;const kf=e.target.dataset.kf,kp=e.target.dataset.kpick;if(!kf&&!kp)return;const mt=moves[ksel].meta,x=mt.x||(mt.x={});
+ if(kp){const rgb=hex2rgb(e.target.value);x.COLOR=rgb;const t=$('#ed [data-kf="color"]');if(t)t.value=rgb}
+ else{const v=e.target.type==='checkbox'?e.target.checked:e.target.value;
+  if(kf==='name')mt.name=v;else if(kf==='key')mt.key=v;else if(kf==='cd')mt.cd=parseFloat(v)||0;else if(kf==='tip')x['TOOL TIP']=v;else if(kf==='add')x.ADD=!!v;
+  else if(kf==='duration')x.DURATION=parseFloat(v)||0;else if(kf==='delay')x.DELAY=parseFloat(v)||0;
+  else if(kf==='color'){x.COLOR=v;const hx=rgb2hex(v),pk=$('#ed [data-kpick="color"]');if(hx&&pk)pk.value=hx}}
+ rowsK();save(true)});
+$('#ed').addEventListener('click',e=>{if(tab==='k'&&ksel>=0&&e.target.closest('[data-kopen]'))openMove(ksel)});
+(()=>{let ok=false;try{const d=JSON.parse(localStorage.getItem('jjs-sb3')||'null');
+ if(d&&Array.isArray(d.moves)){moves=d.moves.map(fixMove);ci=Math.min(d.ci,moves.length-1);ok=true}
+ else{const o=JSON.parse(localStorage.getItem('jjs-sb2')||'null');if(o&&o.nodes){moves=[fixMove({meta:o.meta,nodes:o.nodes,props:o.props,branches:o.branches})];ci=0;ok=true}}}catch(e){}
+ if(!ok){example();tab='k';render();return}
+ reloadCur();tab='k';ksel=-1;pal();render()})();
+</script></body></html>
+
 try{window.matchMedia('(prefers-color-scheme: light)').addEventListener('change',()=>{if(UI.theme==='auto')applyUI()})}catch(e){}
 applyUI();
 (()=>{try{const d=JSON.parse(localStorage.getItem('jjs-sb2')||'null');if(d&&d.nodes){nodes=d.nodes.filter(n=>REG[n.kind+n.name]).map(fixN);props=(d.props||[]).filter(n=>REG[n.kind+n.name]);if(d.meta)meta=Object.assign(meta,d.meta);if(Array.isArray(d.branches)&&d.branches.length)branches=d.branches}else throw 0}catch(e){example();pal();return}pal();render()})();
