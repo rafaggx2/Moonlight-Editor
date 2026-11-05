@@ -1,5 +1,5 @@
 # Moonlight-Editor
-This repo features an alternative and powerful skillbuilder for having numerous features and QOL inprovements.
+This repo features an alternative and powerful skillbuilder for  JJS having numerous features and QOL inprovements.
 
 # Where to find it
  * website: https://rafaggx2.github.io/Moonlight-Editor/
