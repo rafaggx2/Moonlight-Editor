@@ -579,8 +579,3 @@ $('#ed').addEventListener('click',e=>{if(tab==='k'&&ksel>=0&&e.target.closest('[
  if(!ok){example();tab='k';render();return}
  reloadCur();tab='k';ksel=-1;pal();render()})();
 </script></body></html>
-
-try{window.matchMedia('(prefers-color-scheme: light)').addEventListener('change',()=>{if(UI.theme==='auto')applyUI()})}catch(e){}
-applyUI();
-(()=>{try{const d=JSON.parse(localStorage.getItem('jjs-sb2')||'null');if(d&&d.nodes){nodes=d.nodes.filter(n=>REG[n.kind+n.name]).map(fixN);props=(d.props||[]).filter(n=>REG[n.kind+n.name]);if(d.meta)meta=Object.assign(meta,d.meta);if(Array.isArray(d.branches)&&d.branches.length)branches=d.branches}else throw 0}catch(e){example();pal();return}pal();render()})();
-</script></body></html>
