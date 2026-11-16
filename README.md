@@ -1,3 +1,5 @@
+![alt text](https://github.com/rafaggx2/Moonlight-Editor/blob/main/THEMES.png)
+
 # Moonlight-Editor
 This repo features an alternative and powerful skillbuilder for  JJS having numerous features and QOL inprovements.
 
@@ -7,10 +9,12 @@ This repo features an alternative and powerful skillbuilder for  JJS having nume
 
 # -FEATURES-
 A list of the most important features includes:
-  * Custom themes
+  * Custom themes and fonts
   * Multi-Node edit
   * Re-orderable branches
   * Color picker for color fields
+  * A save and load character menu
+  * A library where you can save assets and moves
   * and many more to come.
 
 # -NOTES-
